@@ -1,6 +1,23 @@
 /**
- * 周老师数字分身平台 - 前端交互
+ * 周老师数字分身平台 - 前端交互（v2，配合 Vercel 后端）
+ *
+ * 改动相对原版：
+ * 1. 加了 BACKEND_URL —— 默认走相对路径（适合前后端都在 Vercel）
+ *    如果你前端继续放 GitHub Pages、后端用 Vercel，把 BACKEND_URL 改成
+ *    'https://你的项目.vercel.app' 即可
+ * 2. 加了对话历史 conversationHistory —— 每轮发给后端 /api/chat，让周老师有上下文记忆
+ * 3. 重置 / 切换身份时会清空 conversationHistory
  */
+
+// ============================================================
+// 配置：后端地址
+// ============================================================
+// 默认 ''（同源，相对路径）—— 前后端都部署在同一个 Vercel 项目时用这个
+// 如果前端放 GitHub Pages、后端放 Vercel，改成你的 Vercel URL：
+//   const BACKEND_URL = 'https://zhouzhou-avatar.vercel.app';
+const BACKEND_URL = '';
+
+const apiUrl = (path) => `${BACKEND_URL}${path}`;
 
 // ============================================================
 // DOM 元素
@@ -21,6 +38,23 @@ const avatarVideo = document.getElementById('avatarVideo');
 let isSending = false;
 
 // ============================================================
+// 对话历史（保留最近 10 轮发给后端）
+// ============================================================
+let conversationHistory = [];
+const MAX_HISTORY = 10;
+
+function pushHistory(role, content) {
+  conversationHistory.push({ role, content });
+  if (conversationHistory.length > MAX_HISTORY) {
+    conversationHistory = conversationHistory.slice(-MAX_HISTORY);
+  }
+}
+
+function clearHistory() {
+  conversationHistory = [];
+}
+
+// ============================================================
 // 初始化
 // ============================================================
 document.addEventListener('DOMContentLoaded', () => {
@@ -32,7 +66,7 @@ document.addEventListener('DOMContentLoaded', () => {
 // 显示当前剩余额度
 async function refreshUsage() {
   try {
-    const res = await fetch('/api/usage', { credentials: 'include' });
+    const res = await fetch(apiUrl('/api/usage'), { credentials: 'include' });
     const data = await res.json();
     const badge = document.getElementById('usageBadge');
     if (badge) {
@@ -47,18 +81,9 @@ async function refreshUsage() {
 window.refreshUsage = refreshUsage;
 
 // 健康检查
-// 重置接口也带 credentials
-const _origFetch = window.fetch;
-window.fetch = function(url, opts = {}) {
-  if (typeof url === 'string' && url.startsWith('/api/')) {
-    opts.credentials = opts.credentials || 'include';
-  }
-  return _origFetch(url, opts);
-};
-
 async function checkHealth() {
   try {
-    const res = await fetch('/api/health', { credentials: 'include' });
+    const res = await fetch(apiUrl('/api/health'), { credentials: 'include' });
     const data = await res.json();
     const allGood = data.claude || data.elevenlabs || data.heygen;
     statusDot.className = 'status-dot ' + (allGood ? 'online' : 'offline');
@@ -69,36 +94,13 @@ async function checkHealth() {
     if (parts.length > 0) {
       statusTextEl.textContent = parts.join(' + ') + ' 在线';
     } else {
-      statusTextEl.textContent = '仅文字模式';
-      statusDot.className = 'status-dot offline';
+      statusTextEl.textContent = '服务未配置';
     }
-  } catch {
+  } catch (err) {
     statusDot.className = 'status-dot offline';
     statusTextEl.textContent = '连接失败';
   }
 }
-
-// ============================================================
-// 输入处理
-// ============================================================
-chatInput.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && !e.shiftKey) {
-    e.preventDefault();
-    handleSend();
-  }
-});
-
-sendBtn.addEventListener('click', handleSend);
-
-// 快捷问题
-quickQuestions.addEventListener('click', (e) => {
-  const btn = e.target.closest('.quick-btn');
-  if (btn) {
-    chatInput.value = btn.dataset.q;
-    chatInput.focus();
-    autoResizeInput();
-  }
-});
 
 // 自动调整输入框高度
 function autoResizeInput() {
@@ -128,12 +130,16 @@ async function handleSend() {
   setAvatarStatus('thinking');
 
   try {
-    // 3. 获取文字回复
-    const chatRes = await fetch('/api/chat', {
+    // 3. 获取文字回复（把对话历史一并发过去，让周老师有上下文）
+    const chatRes = await fetch(apiUrl('/api/chat'), {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ message, userRole: window.userRole || null }),
+      body: JSON.stringify({
+        message,
+        history: conversationHistory,
+        userRole: window.userRole || 'parent',
+      }),
     });
     const chatData = await chatRes.json();
 
@@ -143,13 +149,17 @@ async function handleSend() {
       setAvatarStatus('idle');
       isSending = false;
       sendBtn.disabled = false;
-      // 刷新额度显示
       if (window.refreshUsage) window.refreshUsage();
       return;
     }
     if (!chatRes.ok) throw new Error(chatData.error || '回复失败');
 
     const reply = chatData.reply;
+
+    // 把这一轮加入历史
+    pushHistory('user', message);
+    pushHistory('assistant', reply);
+
     if (window.refreshUsage) window.refreshUsage();
 
     // 4. 隐藏打字，显示回复
@@ -170,7 +180,7 @@ async function handleSend() {
       await playAudio(audioResult.value);
     }
 
-    // 7. 播放视频
+    // 7. 播放视频（如果有）
     if (videoResult.status === 'fulfilled' && videoResult.value) {
       showVideo(videoResult.value);
     }
@@ -278,11 +288,11 @@ function setAvatarStatus(state) {
 }
 
 // ============================================================
-// 语音合成
+// 语音合成（ElevenLabs）
 // ============================================================
 async function synthesizeSpeech(text) {
   try {
-    const res = await fetch('/api/speak', {
+    const res = await fetch(apiUrl('/api/speak'), {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
@@ -330,11 +340,9 @@ function playAudio(url) {
       const buffer = new Uint8Array(analyser.frequencyBinCount);
       const loop = () => {
         analyser.getByteFrequencyData(buffer);
-        // 只看低频区间（人声主要能量），模拟下颌开合
         let sum = 0;
         for (let i = 2; i < 40; i++) sum += buffer[i];
-        const avg = sum / 38 / 255; // 归一化 0-1
-        // 平滑 + 放大
+        const avg = sum / 38 / 255;
         const amount = Math.min(avg * 1.8, 1);
         imageWrapper.style.setProperty('--mouth-open', amount.toFixed(3));
         rafId = requestAnimationFrame(loop);
@@ -367,31 +375,36 @@ function stopSpeaking() {
     currentAudio.pause();
     currentAudio.currentTime = 0;
   }
-  // 关键：调用 cleanup 让 playAudio 的 Promise 完成，这样发送按钮才会解锁
   if (currentPlaybackCleanup) {
     currentPlaybackCleanup();
   }
   setAvatarStatus('idle');
 }
 
-stopBtn.addEventListener('click', stopSpeaking);
+if (stopBtn) {
+  stopBtn.addEventListener('click', stopSpeaking);
+}
 
 // ============================================================
-// 视频生成
+// 视频生成（HeyGen，可选）
 // ============================================================
 async function generateAvatar(text) {
   try {
     setAvatarStatus('generating');
 
-    const res = await fetch('/api/avatar', {
+    const res = await fetch(apiUrl('/api/avatar'), {
       method: 'POST',
       credentials: 'include',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ text }),
     });
 
+    if (res.status === 503) {
+      // HeyGen 没配置 — 优雅降级，啥也不返回，前端继续用静态图+嘴动
+      return null;
+    }
     if (!res.ok) {
-      console.error('视频生成失败：', res.status);
+      console.warn('视频生成失败（可能超时，继续用静态图）：', res.status);
       return null;
     }
 
@@ -424,3 +437,39 @@ function showVideo(url) {
     imageWrapper.style.display = 'block';
   });
 }
+
+// ============================================================
+// 发送按钮 & Enter
+// ============================================================
+sendBtn.addEventListener('click', handleSend);
+
+chatInput.addEventListener('keydown', (e) => {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    handleSend();
+  }
+});
+
+// 快速问题按钮（事件委托，因为按钮会被 immersive.html 里的代码动态替换）
+quickQuestions.addEventListener('click', (e) => {
+  const btn = e.target.closest('.quick-btn');
+  if (btn && btn.dataset.q) {
+    chatInput.value = btn.dataset.q;
+    handleSend();
+  }
+});
+
+// ============================================================
+// 重置（切换身份时被调用）
+// ============================================================
+const _origFetch = window.fetch;
+window.fetch = function (url, opts = {}) {
+  // 拦截：调到 /api/reset 时清空本地历史
+  if (typeof url === 'string' && (url === '/api/reset' || url.endsWith('/api/reset'))) {
+    clearHistory();
+  }
+  return _origFetch(url, opts);
+};
+
+// 暴露给调试用
+window.__zhouxlaoshi = { conversationHistory, clearHistory };
