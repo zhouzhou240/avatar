@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>周老师数字分身</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=DM+Serif+Display&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <!-- 隐私同意横幅 -->
+  <div class="privacy-banner" id="privacyBanner" style="display:none;">
+    <div class="privacy-banner-inner">
+      <div class="privacy-banner-text">
+        <strong>使用前请知悉</strong>：你的对话会发送给 AI（Anthropic Claude）生成回复，会话数据 24 小时后自动清除，不用于训练。
+        本 AI <strong>不能替代专业心理治疗</strong>。
+        <a href="/privacy.html" target="_blank">查看完整隐私政策</a>
+      </div>
+      <button class="privacy-banner-btn" id="privacyAcceptBtn">我已了解</button>
+    </div>
+  </div>
+
+  <!-- 身份选择入口 -->
+  <div class="welcome-modal-classic" id="welcomeModal">
+    <div class="welcome-content-classic">
+      <div class="welcome-logo-classic">🌿</div>
+      <h1 class="welcome-title-classic">你好，我是哈佛家庭教育周老师</h1>
+      <p class="welcome-subtitle-classic">开始之前，让我先了解一下你</p>
+      <div class="role-options-classic">
+        <button class="role-btn-classic" data-role="parent">
+          <div class="role-emoji-classic">👨‍👩‍👧</div>
+          <div class="role-label-classic">我是家长</div>
+          <div class="role-desc-classic">想聊聊育儿、亲子、家庭</div>
+        </button>
+        <button class="role-btn-classic" data-role="child">
+          <div class="role-emoji-classic">🌱</div>
+          <div class="role-label-classic">我是孩子</div>
+          <div class="role-desc-classic">想找一个懂我的人聊聊</div>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 导航栏 -->
+  <nav class="navbar">
+    <div class="nav-inner">
+      <div class="nav-left">
+        <span class="nav-logo">🌿</span>
+        <span class="nav-title">周老师数字分身</span>
+      </div>
+      <div class="nav-right">
+        <span class="usage-badge-classic" id="usageBadge" title="今日剩余额度">今日剩余...</span>
+        <a href="/immersive.html" class="version-link" style="margin-right:12px;font-size:13px;color:var(--muted);text-decoration:none;padding:6px 12px;border:1px solid rgba(0,0,0,0.08);border-radius:100px;">✨ 沉浸版</a>
+        <span class="status-dot" id="statusDot"></span>
+        <span class="status-text" id="statusText">检测中...</span>
+      </div>
+    </div>
+  </nav>
+
+  <!-- 主体 -->
+  <main class="main-container">
+    <!-- 左栏 - 头像区 -->
+    <section class="avatar-card">
+      <div class="avatar-video-wrapper" id="videoWrapper" style="display:none;">
+        <video id="avatarVideo" autoplay playsinline></video>
+      </div>
+      <div class="avatar-image-wrapper" id="imageWrapper">
+        <img src="avatar.png" alt="周老师" class="avatar-img" id="avatarImg">
+      </div>
+      <h2 class="avatar-name">哈佛家庭教育周老师</h2>
+      <p class="avatar-subtitle">哈佛教育学 · 家庭关系专家 · 明日之屋创始人</p>
+      <div class="avatar-status" id="avatarStatus">
+        <span class="status-icon" id="statusIcon">💤</span>
+        <span class="status-label" id="statusLabel">等待你的问题...</span>
+      </div>
+      <button class="stop-btn" id="stopBtn" style="display:none;" title="停止说话">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor">
+          <rect x="6" y="6" width="12" height="12" rx="1"></rect>
+        </svg>
+        <span>停止说话</span>
+      </button>
+    </section>
+
+    <!-- 右栏 - 聊天区 -->
+    <section class="chat-card">
+      <div class="chat-header">
+        <h2 class="chat-title">和周老师聊天</h2>
+        <p class="chat-subtitle">家庭教育 · 亲子关系 · 情绪发展</p>
+      </div>
+
+      <div class="chat-messages" id="chatMessages">
+        <div class="message assistant-message">
+          <div class="message-bubble">你好！我是周老师 😊 有什么想聊的，尽管问我。</div>
+        </div>
+      </div>
+
+      <div class="quick-questions" id="quickQuestions">
+        <button class="quick-btn" data-q="孩子不听话怎么办">孩子不听话怎么办</button>
+        <button class="quick-btn" data-q="青春期叛逆">青春期叛逆</button>
+        <button class="quick-btn" data-q="手机游戏上瘾">手机游戏上瘾</button>
+        <button class="quick-btn" data-q="孩子情绪崩溃">孩子情绪崩溃</button>
+        <button class="quick-btn" data-q="推荐书籍">推荐书籍</button>
+      </div>
+
+      <div class="chat-input-area">
+        <textarea
+          id="chatInput"
+          class="chat-input"
+          placeholder="输入你的问题... (Enter 发送，Shift+Enter 换行)"
+          rows="1"
+        ></textarea>
+        <button class="send-btn" id="sendBtn" title="发送">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <line x1="5" y1="12" x2="19" y2="12"></line>
+            <polyline points="12 5 19 12 12 19"></polyline>
+          </svg>
+        </button>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+  <script>
+    // 隐私同意横幅
+    const privacyBanner = document.getElementById('privacyBanner');
+    if (!localStorage.getItem('privacyAccepted')) {
+      privacyBanner.style.display = 'block';
+    }
+    document.getElementById('privacyAcceptBtn').addEventListener('click', () => {
+      localStorage.setItem('privacyAccepted', '1');
+      privacyBanner.style.display = 'none';
+    });
+
+    // 身份选择
+    const welcomeModal = document.getElementById('welcomeModal');
+    const QUICK_QUESTIONS = {
+      parent: [
+        { label: '孩子不听话怎么办', q: '孩子不听话怎么办' },
+        { label: '青春期叛逆', q: '青春期叛逆' },
+        { label: '手机游戏上瘾', q: '手机游戏上瘾' },
+        { label: '孩子情绪崩溃', q: '孩子情绪崩溃' },
+        { label: '推荐书籍', q: '推荐书籍' },
+      ],
+      child: [
+        { label: '我总内耗怎么办', q: '我总内耗怎么办' },
+        { label: '感到焦虑', q: '我最近感到很焦虑' },
+        { label: '我未来如何走', q: '我未来如何走' },
+        { label: '我的优势在哪里', q: '我的优势在哪里' },
+      ],
+    };
+    function updateGreeting(role) {
+      const firstBubble = document.querySelector('.chat-messages .message-bubble');
+      if (firstBubble) {
+        firstBubble.textContent = role === 'parent'
+          ? '你好 😊 我是哈佛家庭教育周老师。很高兴你愿意来聊聊。你今天想聊孩子的事，还是先聊聊你自己？'
+          : '你好呀 🌱 我是周老师。有些话不方便和爸妈说，可以告诉我。我在这里，不评判你。你最近过得怎么样？';
+      }
+    }
+    function updateQuickQuestions(role) {
+      const container = document.getElementById('quickQuestions');
+      if (!container) return;
+      const items = QUICK_QUESTIONS[role] || QUICK_QUESTIONS.parent;
+      container.innerHTML = items
+        .map((item) => `<button class="quick-btn" data-q="${item.q}">${item.label}</button>`)
+        .join('');
+    }
+    const savedRole = sessionStorage.getItem('userRole');
+    if (savedRole) {
+      welcomeModal.style.display = 'none';
+      window.userRole = savedRole;
+      updateGreeting(savedRole);
+      updateQuickQuestions(savedRole);
+    }
+    document.querySelectorAll('.role-btn-classic').forEach((btn) => {
+      btn.addEventListener('click', async () => {
+        const role = btn.dataset.role;
+        const oldRole = sessionStorage.getItem('userRole');
+        sessionStorage.setItem('userRole', role);
+        window.userRole = role;
+        welcomeModal.classList.add('hide');
+        setTimeout(() => welcomeModal.style.display = 'none', 400);
+
+        // 切换身份时清空服务器端对话历史 + 前端聊天气泡
+        if (oldRole && oldRole !== role) {
+          try { await fetch('/api/reset', { method: 'POST' }); } catch {}
+          const msgs = document.getElementById('chatMessages');
+          if (msgs) {
+            msgs.innerHTML = '<div class="message assistant-message"><div class="message-bubble"></div></div>';
+          }
+        }
+
+        updateGreeting(role);
+        updateQuickQuestions(role);
+      });
+    });
+  </script>
+</body>
+</html>
