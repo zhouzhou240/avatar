@@ -1,0 +1,10 @@
+{
+  "name": "zhouxlaoshi-avatar-backend",
+  "version": "1.0.0",
+  "description": "周老师 AI 数字分身 — Vercel serverless 后端（Claude + ElevenLabs + HeyGen）",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=18"
+  }
+}

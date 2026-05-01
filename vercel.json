@@ -1,0 +1,14 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "version": 2,
+  "rewrites": [
+    { "source": "/", "destination": "/public/index.html" },
+    { "source": "/immersive", "destination": "/public/immersive.html" },
+    { "source": "/immersive.html", "destination": "/public/immersive.html" }
+  ],
+  "functions": {
+    "api/avatar.js": {
+      "maxDuration": 60
+    }
+  }
+}
